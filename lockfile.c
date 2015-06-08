@@ -232,8 +232,11 @@ char *get_locked_file_path(struct lock_file *lk)
 {
 	if (!lk->tempfile.active)
 		die("BUG: get_locked_file_path() called for unlocked object");
-	if (lk->tempfile.filename.len <= LOCK_SUFFIX_LEN)
+	if (lk->tempfile.filename.len <= LOCK_SUFFIX_LEN ||
+	    strcmp(lk->tempfile.filename.buf + lk->tempfile.filename.len - LOCK_SUFFIX_LEN,
+		   LOCK_SUFFIX))
 		die("BUG: get_locked_file_path() called for malformed lock object");
+	/* remove ".lock": */
 	return xmemdupz(lk->tempfile.filename.buf, lk->tempfile.filename.len - LOCK_SUFFIX_LEN);
 }
 
@@ -244,23 +247,16 @@ int commit_lock_file_to(struct lock_file *lk, const char *path)
 
 int commit_lock_file(struct lock_file *lk)
 {
-	static struct strbuf result_file = STRBUF_INIT;
-	int err;
+	char *result_path = get_locked_file_path(lk);
 
-	if (!lk->tempfile.active)
-		die("BUG: attempt to commit unlocked object");
-
-	if (lk->tempfile.filename.len <= LOCK_SUFFIX_LEN ||
-	    strcmp(lk->tempfile.filename.buf + lk->tempfile.filename.len - LOCK_SUFFIX_LEN,
-		   LOCK_SUFFIX))
-		die("BUG: lockfile filename corrupt");
-
-	/* remove ".lock": */
-	strbuf_add(&result_file, lk->tempfile.filename.buf,
-		   lk->tempfile.filename.len - LOCK_SUFFIX_LEN);
-	err = commit_lock_file_to(lk, result_file.buf);
-	strbuf_reset(&result_file);
-	return err;
+	if (commit_lock_file_to(lk, result_path)) {
+		int save_errno = errno;
+		free(result_path);
+		errno = save_errno;
+		return -1;
+	}
+	free(result_path);
+	return 0;
 }
 
 void rollback_lock_file(struct lock_file *lk)
