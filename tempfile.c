@@ -31,11 +31,8 @@ static void remove_tempfiles_on_signal(int signo)
 	raise(signo);
 }
 
-/* Make sure errno contains a meaningful value on error */
-int create_tempfile(struct tempfile *tempfile, const char *path)
+static void register_tempfile_object(struct tempfile *tempfile, const char *path)
 {
-	size_t pathlen = strlen(path);
-
 	if (!tempfile_list) {
 		/* One-time initialization */
 		sigchain_push_common(remove_tempfiles_on_signal);
@@ -51,7 +48,7 @@ int create_tempfile(struct tempfile *tempfile, const char *path)
 		tempfile->fp = NULL;
 		tempfile->active = 0;
 		tempfile->owner = 0;
-		strbuf_init(&tempfile->filename, pathlen);
+		strbuf_init(&tempfile->filename, strlen(path));
 		tempfile->next = tempfile_list;
 		tempfile_list = tempfile;
 		tempfile->on_list = 1;
@@ -60,6 +57,12 @@ int create_tempfile(struct tempfile *tempfile, const char *path)
 		die("BUG: tempfile(\"%s\") called with improperly-reset tempfile object",
 		    path);
 	}
+}
+
+/* Make sure errno contains a meaningful value on error */
+int create_tempfile(struct tempfile *tempfile, const char *path)
+{
+	register_tempfile_object(tempfile, path);
 
 	strbuf_add_absolute_path(&tempfile->filename, path);
 	tempfile->fd = open(tempfile->filename.buf, O_RDWR | O_CREAT | O_EXCL, 0666);
