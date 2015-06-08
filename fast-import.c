@@ -1807,7 +1807,7 @@ static void dump_marks(void)
 		return;
 	}
 
-	f = fdopen_lock_file(&mark_lock, "w");
+	f = fdopen_tempfile(&mark_lock.tempfile, "w");
 	if (!f) {
 		int saved_errno = errno;
 		rollback_lock_file(&mark_lock);

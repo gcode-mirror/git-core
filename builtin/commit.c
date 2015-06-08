@@ -358,7 +358,7 @@ static const char *prepare_index(int argc, const char **argv, const char *prefix
 		discard_cache();
 		read_cache_from(index_lock.tempfile.filename.buf);
 		if (update_main_cache_tree(WRITE_TREE_SILENT) == 0) {
-			if (reopen_lock_file(&index_lock) < 0)
+			if (reopen_tempfile(&index_lock.tempfile) < 0)
 				die(_("unable to write index file"));
 			if (write_locked_index(&the_index, &index_lock, CLOSE_LOCK))
 				die(_("unable to update temporary index"));

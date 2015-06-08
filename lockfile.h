@@ -53,8 +53,8 @@
  *     `hold_lock_file_for_*()` functions (also available via
  *     `lock->fd`).
  *
- *   * calling `fdopen_lock_file()` to get a `FILE` pointer for the
- *     open file and writing to the file using stdio.
+ *   * calling `fdopen_tempfile(lk->tempfile)` to get a `FILE` pointer
+ *     for the open file and writing to the file using stdio.
  *
  * When finished writing, the caller can:
  *
@@ -65,10 +65,16 @@
  * * Close the file descriptor and remove the lockfile by calling
  *   `rollback_lock_file()`.
  *
- * * Close the file descriptor without removing or renaming the
- *   lockfile by calling `close_lock_file()`, and later call
- *   `commit_lock_file()`, `commit_lock_file_to()`,
- *   `rollback_lock_file()`, or `reopen_lock_file()`.
+ * It is also permissable to call the following functions on the
+ * underlying tempfile object:
+ *
+ * * close_tempfile(lk->tempfile)
+ *
+ * * reopen_tempfile(lk->tempfile)
+ *
+ * * fdopen_tempfile(lk->tempfile, mode)
+ *
+ * See "tempfile.h" for more information.
  *
  * Even after the lockfile is committed or rolled back, the
  * `lock_file` object must not be freed or altered by the caller.
@@ -79,11 +85,6 @@
  * `commit_lock_file_to()`, or `rollback_lock_file()` is called, the
  * tempfile module will close and remove the lockfile, thereby rolling
  * back any uncommitted changes.
- *
- * If you need to close the file descriptor you obtained from a
- * `hold_lock_file_for_*()` function yourself, do so by calling
- * `close_lock_file()`. See "tempfile.h" for more information.
- *
  *
  * Under the covers, a lockfile is just a tempfile with a few helper
  * functions. In particular, the state diagram and the cleanup
@@ -99,10 +100,9 @@
  * failure. Errors can be reported by passing `errno` to
  * `unable_to_lock_message()` or `unable_to_lock_die()`.
  *
- * Similarly, `commit_lock_file`, `commit_lock_file_to`, and
- * `close_lock_file` return 0 on success. On failure they set `errno`
- * appropriately, do their best to roll back the lockfile, and return
- * -1.
+ * Similarly, `commit_lock_file` and `commit_lock_file_to` return 0 on
+ * success. On failure they set `errno` appropriately, do their best
+ * to roll back the lockfile, and return -1.
  */
 
 struct lock_file {
@@ -192,50 +192,10 @@ extern void unable_to_lock_message(const char *path, int err,
 extern NORETURN void unable_to_lock_die(const char *path, int err);
 
 /*
- * Associate a stdio stream with the lockfile (which must still be
- * open). Return `NULL` (*without* rolling back the lockfile) on
- * error. The stream is closed automatically when `close_lock_file()`
- * is called or when the file is committed or rolled back.
- */
-extern FILE *fdopen_lock_file(struct lock_file *lk, const char *mode);
-
-/*
  * Return the path of the file that is locked by the specified
  * lock_file object. The caller must free the memory.
  */
 extern char *get_locked_file_path(struct lock_file *lk);
-
-/*
- * If the lockfile is still open, close it (and the file pointer if it
- * has been opened using `fdopen_lock_file()`) without renaming the
- * lockfile over the file being locked. Return 0 upon success. On
- * failure to `close(2)`, return a negative value and roll back the
- * lock file. Usually `commit_lock_file()`, `commit_lock_file_to()`,
- * or `rollback_lock_file()` should eventually be called if
- * `close_lock_file()` succeeds.
- */
-extern int close_lock_file(struct lock_file *lk);
-
-/*
- * Re-open a lockfile that has been closed using `close_lock_file()`
- * but not yet committed or rolled back. This can be used to implement
- * a sequence of operations like the following:
- *
- * * Lock file.
- *
- * * Write new contents to lockfile, then `close_lock_file()` to
- *   cause the contents to be written to disk.
- *
- * * Pass the name of the lockfile to another program to allow it (and
- *   nobody else) to inspect the contents you wrote, while still
- *   holding the lock yourself.
- *
- * * `reopen_lock_file()` to reopen the lockfile. Make further updates
- *   to the contents.
- *
- * * `commit_lock_file()` to make the final version permanent.
- */
-extern int reopen_lock_file(struct lock_file *lk);
 
 /*
  * Commit the change represented by `lk`: close the file descriptor

@@ -2549,7 +2549,7 @@ int commit_packed_refs(void)
 	if (!packed_ref_cache->lock)
 		die("internal error: packed-refs not locked");
 
-	out = fdopen_lock_file(packed_ref_cache->lock, "w");
+	out = fdopen_tempfile(&packed_ref_cache->lock->tempfile, "w");
 	if (!out)
 		die_errno("unable to fdopen packed-refs descriptor");
 
@@ -2984,7 +2984,7 @@ int rename_ref(const char *oldrefname, const char *newrefname, const char *logms
 
 static int close_ref(struct ref_lock *lock)
 {
-	if (close_lock_file(lock->lk))
+	if (close_tempfile(&lock->lk->tempfile))
 		return -1;
 	return 0;
 }
@@ -4237,7 +4237,7 @@ int reflog_expire(const char *refname, const unsigned char *sha1,
 			strbuf_release(&err);
 			goto failure;
 		}
-		cb.newlog = fdopen_lock_file(&reflog_lock, "w");
+		cb.newlog = fdopen_tempfile(&reflog_lock.tempfile, "w");
 		if (!cb.newlog) {
 			error("cannot fdopen %s (%s)",
 			      reflog_lock.tempfile.filename.buf, strerror(errno));
@@ -4261,7 +4261,7 @@ int reflog_expire(const char *refname, const unsigned char *sha1,
 			!(type & REF_ISSYMREF) &&
 			!is_null_sha1(cb.last_kept_sha1);
 
-		if (close_lock_file(&reflog_lock)) {
+		if (close_tempfile(&reflog_lock.tempfile)) {
 			status |= error("couldn't write %s: %s", log_file,
 					strerror(errno));
 		} else if (update &&
