@@ -48,7 +48,7 @@ static void register_tempfile_object(struct tempfile *tempfile, const char *path
 		tempfile->fp = NULL;
 		tempfile->active = 0;
 		tempfile->owner = 0;
-		strbuf_init(&tempfile->filename, strlen(path));
+		strbuf_init(&tempfile->filename, 0);
 		tempfile->next = tempfile_list;
 		tempfile_list = tempfile;
 		tempfile->on_list = 1;
@@ -80,6 +80,59 @@ int create_tempfile(struct tempfile *tempfile, const char *path)
 		return -1;
 	}
 	return tempfile->fd;
+}
+
+int mks_tempfile_sm(struct tempfile *tempfile,
+		    const char *template, int suffixlen, int mode)
+{
+	register_tempfile_object(tempfile, template);
+
+	strbuf_add_absolute_path(&tempfile->filename, template);
+	tempfile->fd = git_mkstemps_mode(tempfile->filename.buf, suffixlen, mode);
+	if (tempfile->fd < 0) {
+		strbuf_reset(&tempfile->filename);
+		return -1;
+	}
+	tempfile->owner = getpid();
+	tempfile->active = 1;
+	return tempfile->fd;
+}
+
+int mks_tempfile_tsm(struct tempfile *tempfile,
+		     const char *template, int suffixlen, int mode)
+{
+	const char *tmpdir;
+
+	register_tempfile_object(tempfile, template);
+
+	tmpdir = getenv("TMPDIR");
+	if (!tmpdir)
+		tmpdir = "/tmp";
+
+	strbuf_addf(&tempfile->filename, "%s/%s", tmpdir, template);
+	tempfile->fd = git_mkstemps_mode(tempfile->filename.buf, suffixlen, mode);
+	if (tempfile->fd < 0) {
+		strbuf_reset(&tempfile->filename);
+		return -1;
+	}
+	tempfile->owner = getpid();
+	tempfile->active = 1;
+	return tempfile->fd;
+}
+
+int xmks_tempfile_m(struct tempfile *tempfile, const char *template, int mode)
+{
+	int fd;
+	struct strbuf full_template = STRBUF_INIT;
+
+	strbuf_add_absolute_path(&full_template, template);
+	fd = mks_tempfile_m(tempfile, full_template.buf, mode);
+	if (fd < 0)
+		die_errno("Unable to create temporary file '%s'",
+			  full_template.buf);
+
+	strbuf_release(&full_template);
+	return fd;
 }
 
 FILE *fdopen_tempfile(struct tempfile *tempfile, const char *mode)
