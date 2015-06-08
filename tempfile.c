@@ -82,6 +82,15 @@ int create_tempfile(struct tempfile *tempfile, const char *path)
 	return tempfile->fd;
 }
 
+void register_tempfile(struct tempfile *tempfile, const char *path)
+{
+	register_tempfile_object(tempfile, path);
+
+	strbuf_add_absolute_path(&tempfile->filename, path);
+	tempfile->owner = getpid();
+	tempfile->active = 1;
+}
+
 int mks_tempfile_sm(struct tempfile *tempfile,
 		    const char *template, int suffixlen, int mode)
 {
