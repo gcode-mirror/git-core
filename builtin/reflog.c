@@ -1,4 +1,5 @@
 #include "builtin.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "commit.h"
 #include "refs.h"

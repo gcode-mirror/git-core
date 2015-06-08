@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "string-list.h"
 #include "rerere.h"

@@ -5,6 +5,7 @@
  *
  */
 #include "builtin.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "quote.h"
 #include "cache-tree.h"

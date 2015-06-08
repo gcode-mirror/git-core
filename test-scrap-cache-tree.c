@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "tree.h"
 #include "cache-tree.h"

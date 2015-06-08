@@ -5,6 +5,7 @@
  */
 
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "object.h"
 #include "tree.h"

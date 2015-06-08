@@ -7,6 +7,7 @@
  *
  */
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "cache-tree.h"
 #include "quote.h"
