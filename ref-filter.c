@@ -868,8 +868,8 @@ static int ref_filter_handler(const char *refname, const struct object_id *oid, 
 	struct ref_array_item *ref;
 
 	if (flag & REF_BAD_NAME) {
-		  warning("ignoring ref with broken name %s", refname);
-		  return 0;
+		warning("ignoring ref with broken name %s", refname);
+		return 0;
 	}
 
 	if (flag & REF_ISBROKEN) {
