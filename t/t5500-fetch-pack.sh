@@ -547,7 +547,7 @@ check_prot_host_port_path () {
 		*ssh*)
 		pp=ssh
 		uah=userandhost
-		ehost=$(echo $3 | tr -d "[]")
+		ehost=$(echo $3 | tr -d "$squarebrackets")
 		diagport="Diag: port=$4"
 		;;
 		*)

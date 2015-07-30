@@ -170,7 +170,10 @@ LF='
 # when case-folding filenames
 u200c=$(printf '\342\200\214')
 
-export _x05 _x40 _z40 LF u200c
+# [ and ], for use by tr commands.
+squarebrackets="\133\135"
+
+export _x05 _x40 _z40 LF u200c squarebrackets
 
 # Each test should start with something like this, after copyright notices:
 #

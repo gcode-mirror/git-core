@@ -445,7 +445,7 @@ test_expect_success 'clone ssh://host.xz:22/~repo' '
 #IPv6
 for tuah in ::1 [::1] [::1]: user@::1 user@[::1] user@[::1]: [user@::1] [user@::1]:
 do
-	ehost=$(echo $tuah | sed -e "s/1]:/1]/ "| tr -d "[]")
+	ehost=$(echo $tuah | sed -e "s/1]:/1]/" | tr -d "$squarebrackets")
 	test_expect_success "clone ssh://$tuah/home/user/repo" "
 	  test_clone_url ssh://$tuah/home/user/repo $ehost /home/user/repo
 	"
@@ -454,7 +454,7 @@ done
 #IPv6 from home directory
 for tuah in ::1 [::1] user@::1 user@[::1] [user@::1]
 do
-	euah=$(echo $tuah | tr -d "[]")
+	euah=$(echo $tuah | tr -d "$squarebrackets")
 	test_expect_success "clone ssh://$tuah/~repo" "
 	  test_clone_url ssh://$tuah/~repo $euah '~repo'
 	"
@@ -463,7 +463,7 @@ done
 #IPv6 with port number
 for tuah in [::1] user@[::1] [user@::1]
 do
-	euah=$(echo $tuah | tr -d "[]")
+	euah=$(echo $tuah | tr -d "$squarebrackets")
 	test_expect_success "clone ssh://$tuah:22/home/user/repo" "
 	  test_clone_url ssh://$tuah:22/home/user/repo '-p 22' $euah /home/user/repo
 	"
@@ -472,7 +472,7 @@ done
 #IPv6 from home directory with port number
 for tuah in [::1] user@[::1] [user@::1]
 do
-	euah=$(echo $tuah | tr -d "[]")
+	euah=$(echo $tuah | tr -d "$squarebrackets")
 	test_expect_success "clone ssh://$tuah:22/~repo" "
 	  test_clone_url ssh://$tuah:22/~repo '-p 22' $euah '~repo'
 	"

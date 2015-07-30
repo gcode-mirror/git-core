@@ -290,7 +290,7 @@ test_expect_success 'setup incomplete lines' '
 	echo "incomplete" | tr -d "\\012" >>file &&
 	git commit -a -m "Add incomplete line" &&
 	git tag incomplete_lines_add &&
-	sed -e s/CHANGE_ME/change_me/ <file >file+ &&
+	perl -pe "s/CHANGE_ME/change_me/" file >file+ &&
 	mv -f file+ file &&
 	git commit -a -m "Incomplete context line" &&
 	git tag incomplete_lines_ctx &&
