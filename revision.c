@@ -18,6 +18,7 @@
 #include "commit-slab.h"
 #include "dir.h"
 #include "cache-tree.h"
+#include "bisect.h"
 
 volatile show_early_output_fn_t show_early_output;
 
@@ -2078,8 +2079,6 @@ void parse_revision_opt(struct rev_info *revs, struct parse_opt_ctx_t *ctx,
 	ctx->argv += n;
 	ctx->argc -= n;
 }
-
-extern void read_bisect_terms(const char **bad, const char **good);
 
 static int for_each_bisect_ref(const char *submodule, each_ref_fn fn, void *cb_data, const char *term) {
 	struct strbuf bisect_refs = STRBUF_INIT;
