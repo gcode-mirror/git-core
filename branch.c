@@ -311,21 +311,22 @@ void remove_branch_state(void)
 	unlink(git_path("SQUASH_MSG"));
 }
 
-static void check_linked_checkout(const char *branch, const char *id)
+static void check_linked_checkout(const char *symref, const char *branch,
+				  const char *id)
 {
 	struct strbuf sb = STRBUF_INIT;
 	struct strbuf path = STRBUF_INIT;
 	struct strbuf gitdir = STRBUF_INIT;
 
 	/*
-	 * $GIT_COMMON_DIR/HEAD is practically outside
+	 * $GIT_COMMON_DIR/$symref is practically outside
 	 * $GIT_DIR so resolve_ref_unsafe() won't work (it
 	 * uses git_path). Parse the ref ourselves.
 	 */
 	if (id)
-		strbuf_addf(&path, "%s/worktrees/%s/HEAD", get_git_common_dir(), id);
+		strbuf_addf(&path, "%s/worktrees/%s/%s", get_git_common_dir(), id, symref);
 	else
-		strbuf_addf(&path, "%s/HEAD", get_git_common_dir());
+		strbuf_addf(&path, "%s/%s", get_git_common_dir(), symref);
 
 	if (!strbuf_readlink(&sb, path.buf, 0)) {
 		if (!starts_with(sb.buf, "refs/") ||
@@ -356,13 +357,13 @@ done:
 	strbuf_release(&gitdir);
 }
 
-void die_if_checked_out(const char *branch)
+void die_if_shared_symref(const char *symref, const char *branch)
 {
 	struct strbuf path = STRBUF_INIT;
 	DIR *dir;
 	struct dirent *d;
 
-	check_linked_checkout(branch, NULL);
+	check_linked_checkout(symref, branch, NULL);
 
 	strbuf_addf(&path, "%s/worktrees", get_git_common_dir());
 	dir = opendir(path.buf);
@@ -373,7 +374,12 @@ void die_if_checked_out(const char *branch)
 	while ((d = readdir(dir)) != NULL) {
 		if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
 			continue;
-		check_linked_checkout(branch, d->d_name);
+		check_linked_checkout(symref, branch, d->d_name);
 	}
 	closedir(dir);
+}
+
+void die_if_checked_out(const char *branch)
+{
+	die_if_shared_symref("HEAD", branch);
 }
