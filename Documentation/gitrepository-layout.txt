@@ -276,6 +276,11 @@ worktrees/<id>/link::
 	file. It is used to detect if the linked repository is
 	manually removed.
 
+clone.bundle::
+	A bundle file a newer server will tell "git clone" clients
+	to fetch, so that it does not have to pack the entire
+	repository data every time a "git clone" request is made.
+
 SEE ALSO
 --------
 linkgit:git-init[1],
