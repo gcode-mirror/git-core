@@ -5,6 +5,7 @@
  */
 #include "cache.h"
 #include "builtin.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "dir.h"
 #include "pathspec.h"

@@ -154,6 +154,7 @@ Format of STDIN stream:
 
 #include "builtin.h"
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "object.h"
 #include "blob.h"
@@ -1808,7 +1809,7 @@ static void dump_marks(void)
 		return;
 	}
 
-	f = fdopen_lock_file(&mark_lock, "w");
+	f = fdopen_tempfile(&mark_lock.tempfile, "w");
 	if (!f) {
 		int saved_errno = errno;
 		rollback_lock_file(&mark_lock);

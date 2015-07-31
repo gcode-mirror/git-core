@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "bundle.h"
 #include "object.h"
@@ -255,7 +256,7 @@ static int write_pack_data(int bundle_fd, struct lock_file *lock, struct rev_inf
 	 * so set the lock fd to -1 so commit_lock_file()
 	 * won't fail trying to close it.
 	 */
-	lock->fd = -1;
+	lock->tempfile.fd = -1;
 
 	for (i = 0; i < revs->pending.nr; i++) {
 		struct object *object = revs->pending.objects[i].item;

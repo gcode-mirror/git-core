@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "credential.h"
 #include "string-list.h"
@@ -52,7 +53,7 @@ static void print_entry(struct credential *c)
 static void print_line(struct strbuf *buf)
 {
 	strbuf_addch(buf, '\n');
-	write_or_die(credential_lock.fd, buf->buf, buf->len);
+	write_or_die(credential_lock.tempfile.fd, buf->buf, buf->len);
 }
 
 static void rewrite_credential_file(const char *fn, struct credential *c,

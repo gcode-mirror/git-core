@@ -4,6 +4,7 @@
  * Copyright (C) 2006 Johannes Schindelin
  */
 #include "builtin.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "dir.h"
 #include "cache-tree.h"

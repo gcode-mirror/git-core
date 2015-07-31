@@ -9,6 +9,7 @@
  */
 
 #include "builtin.h"
+#include "tempfile.h"
 #include "lockfile.h"
 #include "parse-options.h"
 #include "fetch-pack.h"
