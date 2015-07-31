@@ -2134,6 +2134,7 @@ int cmd_am(int argc, const char **argv, const char *prefix)
 	int keep_cr = -1;
 	int patch_format = PATCH_FORMAT_UNKNOWN;
 	enum resume_mode resume = RESUME_FALSE;
+	int in_progress;
 
 	const char * const usage[] = {
 		N_("git am [options] [(<mbox>|<Maildir>)...]"),
@@ -2229,6 +2230,10 @@ int cmd_am(int argc, const char **argv, const char *prefix)
 
 	am_state_init(&state, git_path("rebase-apply"));
 
+	in_progress = am_in_progress(&state);
+	if (in_progress)
+		am_load(&state);
+
 	argc = parse_options(argc, argv, prefix, options, usage, 0);
 
 	if (binary >= 0)
@@ -2241,7 +2246,7 @@ int cmd_am(int argc, const char **argv, const char *prefix)
 	if (read_index_preload(&the_index, NULL) < 0)
 		die(_("failed to read the index"));
 
-	if (am_in_progress(&state)) {
+	if (in_progress) {
 		/*
 		 * Catch user error to feed us patches when there is a session
 		 * in progress:
@@ -2259,8 +2264,6 @@ int cmd_am(int argc, const char **argv, const char *prefix)
 
 		if (resume == RESUME_FALSE)
 			resume = RESUME_APPLY;
-
-		am_load(&state);
 	} else {
 		struct argv_array paths = ARGV_ARRAY_INIT;
 		int i;
