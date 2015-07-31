@@ -8,6 +8,7 @@
 #include "ll-merge.h"
 #include "attr.h"
 #include "pathspec.h"
+#include "sha1-lookup.h"
 
 #define RESOLVED 0
 #define PUNTED 1
@@ -22,6 +23,26 @@ static int rerere_autoupdate;
 
 static char *merge_rr_path;
 
+static int rerere_dir_nr;
+static int rerere_dir_alloc;
+
+#define RR_HAS_POSTIMAGE 1
+#define RR_HAS_PREIMAGE 2
+static struct rerere_dir {
+	unsigned char sha1[20];
+	unsigned char status;
+} **rerere_dir;
+
+static void free_rerere_dirs(void)
+{
+	int i;
+	for (i = 0; i < rerere_dir_nr; i++)
+		free(rerere_dir[i]);
+	free(rerere_dir);
+	rerere_dir_nr = rerere_dir_alloc = 0;
+	rerere_dir = NULL;
+}
+
 static void free_rerere_id(struct string_list_item *item)
 {
 	free(item->util);
@@ -29,7 +50,7 @@ static void free_rerere_id(struct string_list_item *item)
 
 static const char *rerere_id_hex(const struct rerere_id *id)
 {
-	return id->hex;
+	return sha1_to_hex(id->collection->sha1);
 }
 
 const char *rerere_path(const struct rerere_id *id, const char *file)
@@ -40,17 +61,76 @@ const char *rerere_path(const struct rerere_id *id, const char *file)
 	return git_path("rr-cache/%s/%s", rerere_id_hex(id), file);
 }
 
+static int is_rr_file(const char *name, const char *filename)
+{
+	return !strcmp(name, filename);
+}
+
+static void scan_rerere_dir(struct rerere_dir *rr_dir)
+{
+	struct dirent *de;
+	DIR *dir = opendir(git_path("rr-cache/%s", sha1_to_hex(rr_dir->sha1)));
+
+	if (!dir)
+		return;
+	while ((de = readdir(dir)) != NULL) {
+		if (is_rr_file(de->d_name, "postimage"))
+			rr_dir->status |= RR_HAS_POSTIMAGE;
+		else if (is_rr_file(de->d_name, "preimage"))
+			rr_dir->status |= RR_HAS_PREIMAGE;
+	}
+	closedir(dir);
+}
+
+static const unsigned char *rerere_dir_sha1(size_t i, void *table)
+{
+	struct rerere_dir **rr_dir = table;
+	return rr_dir[i]->sha1;
+}
+
+static struct rerere_dir *find_rerere_dir(const char *hex)
+{
+	unsigned char sha1[20];
+	struct rerere_dir *rr_dir;
+	int pos;
+
+	if (get_sha1_hex(hex, sha1))
+		return NULL; /* BUG */
+	pos = sha1_pos(sha1, rerere_dir, rerere_dir_nr, rerere_dir_sha1);
+	if (pos < 0) {
+		rr_dir = xmalloc(sizeof(*rr_dir));
+		hashcpy(rr_dir->sha1, sha1);
+		rr_dir->status = 0;
+		pos = -1 - pos;
+
+		/* Make sure the array is big enough ... */
+		ALLOC_GROW(rerere_dir, rerere_dir_nr + 1, rerere_dir_alloc);
+		/* ... and add it in. */
+		rerere_dir_nr++;
+		memmove(rerere_dir + pos + 1, rerere_dir + pos,
+			(rerere_dir_nr - pos - 1) * sizeof(*rerere_dir));
+		rerere_dir[pos] = rr_dir;
+		scan_rerere_dir(rr_dir);
+	}
+	return rerere_dir[pos];
+}
+
 static int has_rerere_resolution(const struct rerere_id *id)
 {
-	struct stat st;
+	const int both = RR_HAS_POSTIMAGE|RR_HAS_PREIMAGE;
 
-	return !stat(rerere_path(id, "postimage"), &st);
+	return ((id->collection->status & both) == both);
+}
+
+static int has_rerere_preimage(const struct rerere_id *id)
+{
+	return (id->collection->status & RR_HAS_PREIMAGE);
 }
 
 static struct rerere_id *new_rerere_id_hex(char *hex)
 {
 	struct rerere_id *id = xmalloc(sizeof(*id));
-	strcpy(id->hex, hex);
+	id->collection = find_rerere_dir(hex);
 	return id;
 }
 
@@ -674,8 +754,22 @@ static void do_rerere_one_path(struct string_list_item *rr_item,
 	const char *path = rr_item->string;
 	const struct rerere_id *id = rr_item->util;
 
-	/* Is there a recorded resolution we could attempt to apply? */
-	if (has_rerere_resolution(id)) {
+	if (!has_rerere_preimage(id)) {
+		/*
+		 * We are the first to encounter this conflict.  Ask
+		 * handle_file() to write the normalized contents to
+		 * the "preimage" file.
+		 *
+		 * NEEDSWORK: what should happen if we had a leftover
+		 * postimage that is totally unrelated?  Perhaps we
+		 * should unlink it here?
+		 */
+		handle_file(path, NULL, rerere_path(id, "preimage"));
+		id->collection->status |= RR_HAS_PREIMAGE;
+		fprintf(stderr, "Recorded preimage for '%s'\n", path);
+		return;
+	} else if (has_rerere_resolution(id)) {
+		/* Is there a recorded resolution we could attempt to apply? */
 		if (merge(id, path))
 			return; /* failed to replay */
 
@@ -688,6 +782,7 @@ static void do_rerere_one_path(struct string_list_item *rr_item,
 	} else if (!handle_file(path, NULL, NULL)) {
 		/* The user has resolved it. */
 		copy_file(rerere_path(id, "postimage"), path, 0666);
+		id->collection->status |= RR_HAS_POSTIMAGE;
 		fprintf(stderr, "Recorded resolution for '%s'.\n", path);
 	} else {
 		return;
@@ -731,24 +826,8 @@ static int do_plain_rerere(struct string_list *rr, int fd)
 		id = new_rerere_id(sha1);
 		string_list_insert(rr, path)->util = id;
 
-		/*
-		 * If the directory does not exist, create
-		 * it.  mkdir_in_gitdir() will fail with
-		 * EEXIST if there already is one.
-		 *
-		 * NEEDSWORK: make sure "gc" does not remove
-		 * preimage without removing the directory.
-		 */
-		if (mkdir_in_gitdir(rerere_path(id, NULL)))
-			continue;
-
-		/*
-		 * We are the first to encounter this
-		 * conflict.  Ask handle_file() to write the
-		 * normalized contents to the "preimage" file.
-		 */
-		handle_file(path, NULL, rerere_path(id, "preimage"));
-		fprintf(stderr, "Recorded preimage for '%s'\n", path);
+		/* Ensure that the directory exists. */
+		mkdir_in_gitdir(rerere_path(id, NULL));
 	}
 
 	for (i = 0; i < rr->nr; i++)
@@ -810,12 +889,14 @@ int setup_rerere(struct string_list *merge_rr, int flags)
 int rerere(int flags)
 {
 	struct string_list merge_rr = STRING_LIST_INIT_DUP;
-	int fd;
+	int fd, status;
 
 	fd = setup_rerere(&merge_rr, flags);
 	if (fd < 0)
 		return 0;
-	return do_plain_rerere(&merge_rr, fd);
+	status = do_plain_rerere(&merge_rr, fd);
+	free_rerere_dirs();
+	return status;
 }
 
 static int rerere_forget_one_path(const char *path, struct string_list *rr)
@@ -902,7 +983,7 @@ int rerere_forget(struct pathspec *pathspec)
 static struct rerere_id *dirname_to_id(const char *name)
 {
 	static struct rerere_id id;
-	strcpy(id.hex, name);
+	id.collection = find_rerere_dir(name);
 	return &id;
 }
 
