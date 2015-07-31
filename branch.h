@@ -59,4 +59,11 @@ extern int read_branch_desc(struct strbuf *, const char *branch_name);
  */
 extern void die_if_checked_out(const char *branch);
 
+/*
+ * Check if a symref points to a branch in the main worktree or any linked
+ * worktree and die (with a message describing its checkout location) if
+ * it is.
+ */
+extern void die_if_shared_symref(const char *symref, const char *branch);
+
 #endif
