@@ -40,6 +40,15 @@ test_expect_success setup '
 
 '
 
+test_expect_success "format-patch format.outputDirectory option" '
+	git config format.outputDirectory "patches/" &&
+	git format-patch master..side &&
+	cnt=$(ls | wc -l) &&
+	echo $cnt &&
+	test $cnt = 3 &&
+	git config --unset format.outputDirectory
+'
+
 test_expect_success "format-patch --ignore-if-in-upstream" '
 
 	git format-patch --stdout master..side >patch0 &&

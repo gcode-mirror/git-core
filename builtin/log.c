@@ -704,6 +704,8 @@ enum {
 	COVER_AUTO
 };
 
+static const char *config_output_directory;
+
 static int git_format_config(const char *var, const char *value, void *cb)
 {
 	if (!strcmp(var, "format.headers")) {
@@ -773,6 +775,9 @@ static int git_format_config(const char *var, const char *value, void *cb)
 		}
 		config_cover_letter = git_config_bool(var, value) ? COVER_ON : COVER_OFF;
 		return 0;
+	}
+	if (!strcmp(var, "format.outputdirectory")) {
+		return git_config_string(&config_output_directory, var, value);
 	}
 
 	return git_log_config(var, value, cb);
@@ -1358,6 +1363,9 @@ int cmd_format_patch(int argc, const char **argv, const char *prefix)
 	if (keep_subject && subject_prefix)
 		die (_("--subject-prefix and -k are mutually exclusive."));
 	rev.preserve_subject = keep_subject;
+
+	if (!output_directory && !use_stdout)
+		output_directory = config_output_directory;
 
 	argc = setup_revisions(argc, argv, &rev, &s_r_opt);
 	if (argc > 1)
